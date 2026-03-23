@@ -32,14 +32,9 @@ type SettingSuperMgmt struct {
 	AutobackupCronExpr                       string   `json:"autobackup_cron_expr,omitempty"`
 	AutobackupDays                           int      `json:"autobackup_days,omitempty"`
 	AutobackupEnabled                        bool     `json:"autobackup_enabled"`
-	AutobackupGcsBucket                      string   `json:"autobackup_gcs_bucket,omitempty"`
-	AutobackupGcsCertificatePath             string   `json:"autobackup_gcs_certificate_path,omitempty"`
 	AutobackupLocalPath                      string   `json:"autobackup_local_path,omitempty"`
 	AutobackupMaxFiles                       int      `json:"autobackup_max_files,omitempty"`
-	AutobackupPostActions                    []string `json:"autobackup_post_actions,omitempty"` // copy_local|copy_s3|copy_gcs|copy_cloud
-	AutobackupS3AccessKey                    string   `json:"autobackup_s3_access_key,omitempty"`
-	AutobackupS3AccessSecret                 string   `json:"autobackup_s3_access_secret,omitempty"`
-	AutobackupS3Bucket                       string   `json:"autobackup_s3_bucket,omitempty"`
+	AutobackupPostActions                    []string `json:"autobackup_post_actions,omitempty"` // copy_local|copy_cloud
 	AutobackupTimezone                       string   `json:"autobackup_timezone,omitempty"`
 	BackupToCloudEnabled                     bool     `json:"backup_to_cloud_enabled"`
 	ContactInfoCity                          string   `json:"contact_info_city,omitempty"`
@@ -52,7 +47,6 @@ type SettingSuperMgmt struct {
 	ContactInfoState                         string   `json:"contact_info_state,omitempty"`
 	ContactInfoZip                           string   `json:"contact_info_zip,omitempty"`
 	DataRetentionSettingPreference           string   `json:"data_retention_setting_preference,omitempty"` // auto|manual
-	DataRetentionTimeEnabled                 bool     `json:"data_retention_time_enabled"`
 	DataRetentionTimeInHoursFor5MinutesScale int      `json:"data_retention_time_in_hours_for_5minutes_scale,omitempty"`
 	DataRetentionTimeInHoursForDailyScale    int      `json:"data_retention_time_in_hours_for_daily_scale,omitempty"`
 	DataRetentionTimeInHoursForHourlyScale   int      `json:"data_retention_time_in_hours_for_hourly_scale,omitempty"`
@@ -64,8 +58,7 @@ type SettingSuperMgmt struct {
 	GoogleMapsApiKey                         string   `json:"google_maps_api_key,omitempty"`
 	ImageMapsUseGoogleEngine                 bool     `json:"image_maps_use_google_engine"`
 	LedEnabled                               bool     `json:"led_enabled"`
-	LiveChat                                 string   `json:"live_chat,omitempty"`    // disabled|super-only|everyone
-	LiveUpdates                              string   `json:"live_updates,omitempty"` // disabled|live|auto
+	LiveChat                                 string   `json:"live_chat,omitempty"` // disabled|super-only|everyone
 	MinimumUsableHdSpace                     int      `json:"minimum_usable_hd_space,omitempty"`
 	MinimumUsableSdSpace                     int      `json:"minimum_usable_sd_space,omitempty"`
 	MultipleSitesEnabled                     bool     `json:"multiple_sites_enabled"`

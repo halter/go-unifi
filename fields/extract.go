@@ -20,15 +20,20 @@ import (
 	"github.com/xor-gate/ar"
 )
 
-func downloadJar(url *url.URL, outputDir string) (string, error) {
+var jarPaths = map[string]string{
+	"./usr/lib/unifi/lib/ace.jar":                        "ace.jar",
+	"./usr/lib/unifi/lib/internal/internal-dependencies.jar": "internal-dependencies.jar",
+}
+
+func downloadJars(url *url.URL, outputDir string) ([]string, error) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url.String(), nil)
 	if err != nil {
-		return "", fmt.Errorf("unable to download deb: %w", err)
+		return nil, fmt.Errorf("unable to download deb: %w", err)
 	}
 
 	debResp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("unable to download deb: %w", err)
+		return nil, fmt.Errorf("unable to download deb: %w", err)
 	}
 	defer debResp.Body.Close()
 
@@ -41,25 +46,24 @@ func downloadJar(url *url.URL, outputDir string) (string, error) {
 			break
 		}
 		if err != nil {
-			return "", fmt.Errorf("in ar next: %w", err)
+			return nil, fmt.Errorf("in ar next: %w", err)
 		}
 
-		// read the data file
 		if header.Name == "data.tar.xz" {
 			uncompressedReader, err = xz.NewReader(arReader)
 			if err != nil {
-				return "", fmt.Errorf("in xz reader: %w", err)
+				return nil, fmt.Errorf("in xz reader: %w", err)
 			}
 			break
 		}
 	}
 	if uncompressedReader == nil {
-		return "", fmt.Errorf("unable to find .deb data file")
+		return nil, fmt.Errorf("unable to find .deb data file")
 	}
 
 	tarReader := tar.NewReader(uncompressedReader)
 
-	var aceJar *os.File
+	var extracted []string
 
 	for {
 		header, err := tarReader.Next()
@@ -67,68 +71,50 @@ func downloadJar(url *url.URL, outputDir string) (string, error) {
 			break
 		}
 		if err != nil {
-			return "", fmt.Errorf("in next: %w", err)
+			return nil, fmt.Errorf("in next: %w", err)
 		}
 
-		if header.Typeflag != tar.TypeReg || header.Name != "./usr/lib/unifi/lib/ace.jar" {
-			// skipping
+		localName, ok := jarPaths[header.Name]
+		if !ok || header.Typeflag != tar.TypeReg {
 			continue
 		}
 
-		aceJar, err = os.Create(filepath.Join(outputDir, "ace.jar"))
+		outPath := filepath.Join(outputDir, localName)
+		f, err := os.Create(outPath)
 		if err != nil {
-			return "", fmt.Errorf("unable to create temp file: %w", err)
+			return nil, fmt.Errorf("unable to create %s: %w", localName, err)
 		}
-		_, err = io.Copy(aceJar, tarReader)
+		_, err = io.Copy(f, tarReader)
+		f.Close()
 		if err != nil {
-			return "", fmt.Errorf("unable to write ace.jar temp file: %w", err)
+			return nil, fmt.Errorf("unable to write %s: %w", localName, err)
 		}
+
+		extracted = append(extracted, outPath)
 	}
 
-	if aceJar == nil {
-		return "", fmt.Errorf("unable to find ace.jar")
+	if len(extracted) == 0 {
+		return nil, fmt.Errorf("unable to find any known jar files in deb")
 	}
 
-	defer aceJar.Close()
-
-	return aceJar.Name(), nil
+	return extracted, nil
 }
 
-func extractJSON(jarFile, fieldsDir string) error {
-	jarZip, err := zip.OpenReader(jarFile)
-	if err != nil {
-		return fmt.Errorf("unable to open jar: %w", err)
-	}
-	defer jarZip.Close()
-
-	for _, f := range jarZip.File {
-		if !strings.HasPrefix(f.Name, "api/fields/") || path.Ext(f.Name) != ".json" {
-			// skip file
-			continue
-		}
-
-		err = func() error {
-			src, err := f.Open()
-			if err != nil {
-				return err
-			}
-
-			dst, err := os.Create(filepath.Join(fieldsDir, filepath.Base(f.Name)))
-			if err != nil {
-				return err
-			}
-			defer dst.Close()
-
-			_, err = io.Copy(dst, src)
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}()
+func extractJSON(jarFiles []string, fieldsDir string) error {
+	found := false
+	for _, jarFile := range jarFiles {
+		n, err := extractFieldsFromJar(jarFile, fieldsDir)
 		if err != nil {
-			return fmt.Errorf("unable to write JSON file: %w", err)
+			return err
 		}
+		if n > 0 {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("no api/fields/*.json found in any jar")
 	}
 
 	settingsData, err := os.ReadFile(filepath.Join(fieldsDir, "Setting.json"))
@@ -159,6 +145,42 @@ func extractJSON(jarFile, fieldsDir string) error {
 		}
 	}
 
-	// TODO: cleanup JSON
 	return nil
+}
+
+func extractFieldsFromJar(jarFile, fieldsDir string) (int, error) {
+	jarZip, err := zip.OpenReader(jarFile)
+	if err != nil {
+		return 0, fmt.Errorf("unable to open jar %s: %w", jarFile, err)
+	}
+	defer jarZip.Close()
+
+	count := 0
+	for _, f := range jarZip.File {
+		if !strings.HasPrefix(f.Name, "api/fields/") || path.Ext(f.Name) != ".json" {
+			continue
+		}
+
+		err = func() error {
+			src, err := f.Open()
+			if err != nil {
+				return err
+			}
+
+			dst, err := os.Create(filepath.Join(fieldsDir, filepath.Base(f.Name)))
+			if err != nil {
+				return err
+			}
+			defer dst.Close()
+
+			_, err = io.Copy(dst, src)
+			return err
+		}()
+		if err != nil {
+			return 0, fmt.Errorf("unable to write JSON file: %w", err)
+		}
+		count++
+	}
+
+	return count, nil
 }

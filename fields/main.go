@@ -253,12 +253,12 @@ func main() {
 		}
 
 		// download fields, create
-		jarFile, err := downloadJar(unifiDownloadUrl, fieldsDir)
+		jarFiles, err := downloadJars(unifiDownloadUrl, fieldsDir)
 		if err != nil {
 			panic(err)
 		}
 
-		err = extractJSON(jarFile, fieldsDir)
+		err = extractJSON(jarFiles, fieldsDir)
 		if err != nil {
 			panic(err)
 		}
